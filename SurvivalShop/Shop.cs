@@ -164,7 +164,8 @@ namespace SurvivalShop
             _Commands = new Command[] {
             
                 new Command(SPermissions.ShopManipule, SellItemCommand, "sell"),
-                new Command(SPermissions.ShopManipule, GetPriceCommand, "price")
+                new Command(SPermissions.ShopManipule, GetPriceCommand, "price"),
+                new Command(SPermissions.Admin, InsertItem, "shop_insertitem")
             };
             Commands.ChatCommands.AddRange(_Commands);
         }
@@ -203,6 +204,14 @@ namespace SurvivalShop
             Shop.Queue = new Queue<ShopItem>();
 
             ItemDatabase.Initialize();
+
+            if (Shop.Items.Count < Shop.Frames.Count)
+                for (int i = Shop.Items.Count; i < Shop.Frames.Count; i++)
+                {
+                    var item = Shop.Frames[i];
+                    Shop.FrameItem(item.Item2, null, false);
+                    Shop.SignText(item.Item1, null, false);
+                }
         }
         private void OnPreWipe()
         {
@@ -296,6 +305,10 @@ namespace SurvivalShop
 
                 args.Player.SendErrorMessage("Вы забрали накопления из банка.");
             }
+        }
+        private void InsertItem(CommandArgs args)
+        {
+            Shop.InsertItem(new ShopItem() { Owner = args.Player.Account.ID, Price = 1, Item = new NetItem(int.Parse(args.Parameters[0]), int.Parse(args.Parameters[1]), byte.Parse(args.Parameters[2])) });
         }
 
         internal static void GetFrames(Region region)
@@ -460,10 +473,30 @@ namespace SurvivalShop
         static Color[] _Colors = new Color[]
         {
             new Color(255, 102, 102),
-            new Color(255, 204, 102),
-            new Color(255, 204, 102),
+            new Color(255, 140, 102),
+            new Color(255, 153, 102),
+            new Color(255, 179, 102),
+            new Color(255, 217, 102),
+            new Color(255, 255, 102),
             new Color(217, 255, 102),
-            new Color(140, 255, 102)
+            new Color(179, 255, 102),
+            new Color(140, 255, 102),
+            new Color(102, 255, 102),
+            new Color(102, 255, 140),
+            new Color(102, 255, 179),
+            new Color(102, 255, 217),
+            new Color(102, 255, 255),
+            new Color(102, 217, 255),
+            new Color(102, 179, 255),
+            new Color(102, 140, 255),
+            new Color(102, 102, 255),
+            new Color(140, 102, 255),
+            new Color(179, 102, 255),
+            new Color(217, 102, 255),
+            new Color(255, 102, 255),
+            new Color(255, 102, 217),
+            new Color(255, 102, 179),
+            new Color(255, 102, 140)
         };
 
         internal static void Send(TSPlayer player, int i)
@@ -546,7 +579,8 @@ namespace SurvivalShop
                 PutItemInIndex(j, i, false, false);
             }
 
-            ShopPlugin.ItemDatabase.DB.Query("DELETE FROM SurvShop_Items WHERE ID = @0", Items[index].ID);
+            if (Items[index].ID != -1)
+                ShopPlugin.ItemDatabase.DB.Query("DELETE FROM SurvShop_Items WHERE ID = @0", Items[index].ID);
             Items.RemoveAt(index);
             Update();
             checkAvailableFrames();
@@ -662,7 +696,7 @@ namespace SurvivalShop
     public class ShopItem
     {
         [JsonIgnore]
-        public int ID;
+        public int ID = -1;
 
         public int Owner;
         public long Price;
