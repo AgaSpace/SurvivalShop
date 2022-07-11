@@ -79,7 +79,8 @@ namespace SurvivalShop
                 if (_lastId == -1)
                 {
                     using (var query = DB.QueryReader("INSERT INTO SurvShop_Items VALUES(@0, @1); SELECT LAST_INSERT_ID();", null, JsonConvert.SerializeObject(item)))
-                        _lastId = item.ID = query.Reader.GetInt32(0);
+                        if (query.Read())
+                            _lastId = item.ID = query.Reader.GetInt32(0);
                 }
                 else
                 {
@@ -259,6 +260,21 @@ namespace SurvivalShop
                 return;
             }
 
+
+            if (!args.Player.HasPermission("shop.userplus"))
+            {
+                if (Shop.Items.Count(i => i.Owner == args.Player.Account.ID) > 6)
+                {
+                    args.Player.SendErrorMessage("Вы можете продать только шесть вещей, пожалуйста подождите, пока их кто-то купит\n(либо уберите свои старые)");
+                    return;
+                }
+                if (Shop.Queue.Count > 15)
+                {
+                    args.Player.SendErrorMessage("На складе магазина может храниться только 15 предметов!");
+                    return;
+                }
+            }
+
             var shopItem = new ShopItem() { Item = new NetItem(item.netID, item.stack, item.prefix), Owner = args.Player.Account.ID, Price = price };
 
             args.Player.TPlayer.HeldItem.stack = 0;
@@ -409,38 +425,33 @@ namespace SurvivalShop
             "Опять работать?",
             "Нужно больше золота"
         };
-        static string[] LackMoneyFromServer = new string[]
-        {
-            "Ты бы мне еще консервных банок насобирал",
-            "Этот товар стоит дороже!",
-            "Шо за бодягу ты мне приволок?",
-            "В твоём кормане не слышно монет...",
-            "Мне твой пепел нафиг не сдался."
-        };
-            
+
         static string[] Purchase = new string[]
         {
             "Отличный выбор!",
-            "Заходи ещё!",
-            "Неплохо, хороший товар.",
-            "От так бы всегда!"
+            "Продано!",
+            "Поздравляем с покупкой!",
+            "Заходи ещё!"
         };
         static string[] ReturnPurchase = new string[]
         {
-            "Я забираю свой товар!",
-            "Мой товар не достоин вашего взгляда.",
-            "Убери взгляд от него!"
+            "Моя прелесть...",
+            "Это принадлежит мне!",
+            "И как это сюда попало?"
         };
         static string[] AdminPurchase = new string[]
         {
-            "Нам не нужен ваш предмет!",
-            "Мы дисквалификацируем данный предмет."
+            "Лот очищен!",
+            "Товар конфискован!",
+            "Товар удален с рынка."
         };
 
         static string[] Sell = new string[]
         {
-            "Лучше, чтобы это забрал бедный ребенок..",
-            "Продажа этим ребятам должна мне помочь.."
+            "Торги начались!",
+            "Ждём покупателя...",
+            "...Ожидание покупки...",
+            "Рынок пополнен!"
         };
 
         static string[] SecretPhrases = new string[]
@@ -465,8 +476,6 @@ namespace SurvivalShop
                     return AdminPurchase[random.Next(0, AdminPurchase.Length)];
                 case 4:
                     return Sell[random.Next(0, Sell.Length)];
-                case 5:
-                    return LackMoneyFromServer[random.Next(0, LackMoneyFromServer.Length)];
             }
         }
 
@@ -504,11 +513,6 @@ namespace SurvivalShop
             player.SendData(PacketTypes.CreateCombatTextExtended, GetText(i), (int)_Colors[random.Next(0, _Colors.Length)].PackedValue, player.X, player.Y);
             //CombatText.NewText(player.TPlayer.position, _Colors[random.Next(0, _Colors.Length)], 1, true);
         }
-
-        internal static void SendFromServer(TSPlayer player, Vector2 pos, int i)
-        {
-            player.SendData(PacketTypes.CreateCombatTextExtended, GetText(i), (int)_Colors[random.Next(0, _Colors.Length)].PackedValue, pos.X, pos.Y);
-        }
         #endregion
 
         public static void TryBuy(Tuple<Point, Point> tuple, TSPlayer player)
@@ -526,10 +530,7 @@ namespace SurvivalShop
                 {
                     if (!SurvivalCorePlugin.TryBuy(player, item.Price))
                     {
-                        if (random.Next(0, 1) == 1)
-                            Send(player, 0);
-                        else
-                            SendFromServer(player, tuple.Item2.ToVector2(), 5);
+                        Send(player, 0);
                         return;
                     }
 
